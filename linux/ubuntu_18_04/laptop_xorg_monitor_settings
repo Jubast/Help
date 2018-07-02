@@ -1,0 +1,55 @@
+LVDS-1 # on lapotp
+VGA-1 # left external screen
+DP-2 # right external screen
+
+# future help: https://wiki.archlinux.org/index.php/xrandr
+
+Laptop        External1     External2
++--------+    +---------+    +--------+
+| LVDS-1 | -> |  VGA-1  | -> |  DP-2  |
++--------+    +---------+    +--------+
+
+--verbose: more output
+--primary: IMPORTANT!!
+
+xrandr --verbose --output LVDS-1 --auto --output VGA-1 --auto --right-of LVDS-1 --output DP-2 --auto --right-of VGA-1
+
+# Above command does not work! only 2 screens seem to be avalivabile at one time
+# Google: hp elitebook 2570p 3 monitors: https://superuser.com/questions/413170/connecting-two-external-monitors-to-one-laptop
+# TLDR: Only 2 monitors work at a time, the gpu is not powerful enough to have 3 monitors.
+
+#startup
+xrandr --output VGA-1 --off --output DP-2 --off --output LVDS-1 --auto --primary
+
+#login
+xrandr --output LVDS-1 --off --output VGA-1 --auto --primary --output DP-2 --auto --right-of VGA-1
+
+# Above lines ignored...
+# On ubuntu 18.04 you first have to uncomment "WaylandEnable=false" in "/etc/gdm3/custom.conf"
+# If you don't do this, xorg won't be started on the login screen but only after you login.
+# Below are xorg.conf settings (location: /etc/X11/xorg.conf)
+Section "Monitor"
+	Identifier "laptop_screen"
+	Option	"Primary" "true"
+EndSection
+
+Section "Monitor"
+	Identifier	"left_monitor"
+	Option	"Enable" "false"
+EndSection
+
+Section "Monitor"
+	Identifier	"right_monitor"
+	Option	"Enable" "false"
+EndSection
+
+# Card0 is graphic card, got the info from ~/.local/share/xorg/Xorg.0.log
+# In option "Monitor-<output>", Monitor has to be used.
+# source: ftp://www.x.org/pub/X11R7.7-RC1/doc/man/man5/xorg.conf.5.xhtml
+Section "Device"
+	Identifier	"Card0"
+	Option	"Monitor-LVDS-1" "laptop_screen"
+	Option	"Monitor-VGA-1" "left_monitor"
+	Option	"Monitor-DP-2" "right_monitor"
+EndSection
+
