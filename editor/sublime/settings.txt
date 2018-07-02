@@ -1,0 +1,9 @@
+{
+	"color_scheme": "Packages/Agila Theme/Agila Origin Oceanic Next.tmTheme",
+	"ignored_packages":
+	[
+		"Vintage"
+	],
+	"theme": "Agila.sublime-theme",
+	"theme_agila_active_tab_entry_gray": true
+}
