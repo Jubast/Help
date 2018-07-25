@@ -51,6 +51,7 @@ install_array.append("network-manager")
 install_array.append("firmware-iwlwifi")
 install_array.append("git")
 install_array.append("ufw")
+install_array.append("psmisc") #killall
 # mybe add that pulseaudio
 
 install_result = run(install_array)
@@ -109,6 +110,9 @@ if path.exists(gtk2_path):
 else:
     create_gtk2("x")
 
+chown_gtk2 = "chown miha:miha " + gtk2_path
+run(chown_gtk2.split())
+
 def create_gtk3(mode):
     with open(gtk3_settings_path, mode) as gkt3_file:
         gkt3_file.write("[Settings]\n")
@@ -125,6 +129,15 @@ if path.exists(config):
 else:
     mkdir(config)
 
+if path.exists(gtk3_folder_path):
+    if path.isdir(gtk3_folder_path):
+        pass
+    else:
+        run(["rm", "-f", gtk3_folder_path])
+        mkdir(gtk3_folder_path)
+else:
+    mkdir(gtk3_folder_path)
+
 if path.exists(gtk3_settings_path):
     if path.isfile(gtk3_settings_path):
         create_gtk3("w")
@@ -137,6 +150,9 @@ if path.exists(gtk3_settings_path):
 else:
     create_gtk3("x")
 
+chown_config = "chown -R miha:miha " + config
+run(chown_config.split())
+
 print("-----------------------------")
 print("Done!")
 # download fonts font-awsome system sanfrancisco
@@ -144,9 +160,9 @@ print("Done!")
 print("Downloading fonts...")
 
 command_font_awsome = 'wget https://github.com/FortAwesome/Font-Awesome/releases/download/5.2.0/fontawesome-free-5.2.0-web.zip -O /tmp/fontawsome.zip'
-run(command_font_awsome.split())
+#run(command_font_awsome.split())
 command_san_francisco = 'wget https://github.com/supermarin/YosemiteSanFranciscoFont/archive/master.zip -O /tmp/sanfrancisco.zip'
-run(command_san_francisco.split())
+#run(command_san_francisco.split())
 
 print("-----------------------------")
 print("Done!")
@@ -195,6 +211,9 @@ if path.exists(fonts_folder):
 else:
     mkdir(fonts_folder)
 
+chown_local = "chown -R miha:miha " + local_folder
+run(chown_local.split())
+
 # cp /tmp/fontawesome-free-5.2.0-web/webfonts/*.ttf /home/miha/.local/share/fonts
 
 def copy_font_awsome(filename):
@@ -236,6 +255,18 @@ print("Done!")
 # edit .config/i3/config
 
 print("Moving config file...")
+
+i3_folder = config + "/i3"
+
+if path.exists(i3_folder):
+    if path.isdir(i3_folder):
+        pass
+    else:
+        run(["rm", "-f", i3_folder])
+        mkdir(i3_folder)
+else:
+    print("creating i3")
+    mkdir(i3_folder)
 
 command_move_config = "mv /tmp/jubast_i3_config /home/" + USER + "/.config/i3/config"
 run(command_move_config.split())
