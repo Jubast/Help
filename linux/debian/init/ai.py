@@ -10,7 +10,7 @@ USER = "miha"
 
 #modify sources.list to add contrib non-free
 print("Modifying apt sources list...")
-sources = open("sources", "r+")
+sources = open("/etc/apt/sources.list", "r+")
 sources_lines = []
 
 cnf = " contrib non-free\n"
@@ -50,9 +50,19 @@ install_array.append("unzip")
 install_array.append("network-manager")
 install_array.append("firmware-iwlwifi")
 install_array.append("git")
+install_array.append("ufw")
 # mybe add that pulseaudio
 
 install_result = run(install_array)
+
+print("-----------------------------")
+print("Done!")
+
+#setup firewall
+
+print("Setting up firewall")
+
+run("ufw enable".split())
 
 print("-----------------------------")
 print("Done!")
@@ -216,7 +226,7 @@ print("Done!")
 
 print("Downloading i3 config file..")
 
-#TODO: EDIT LINK
+
 command_config_i3 = "wget https://github.com/Jubast/Help/raw/master/i3/config -O /tmp/jubast_i3_config"
 run(command_config_i3.split())
 
@@ -232,3 +242,12 @@ run(command_move_config.split())
 
 print("-----------------------------")
 print("Done!")
+
+print("-----------------------------")
+print("-----------------------------")
+print("-----------------------------")
+print("-----------------------------")
+print("dont forget to set up git!")
+print("and network manager :)")
+print("here is the status of ufw")
+run("ufw status verbose".split())
