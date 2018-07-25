@@ -160,9 +160,9 @@ print("Done!")
 print("Downloading fonts...")
 
 command_font_awsome = 'wget https://github.com/FortAwesome/Font-Awesome/releases/download/5.2.0/fontawesome-free-5.2.0-web.zip -O /tmp/fontawsome.zip'
-#run(command_font_awsome.split())
+run(command_font_awsome.split())
 command_san_francisco = 'wget https://github.com/supermarin/YosemiteSanFranciscoFont/archive/master.zip -O /tmp/sanfrancisco.zip'
-#run(command_san_francisco.split())
+run(command_san_francisco.split())
 
 print("-----------------------------")
 print("Done!")
@@ -270,6 +270,30 @@ else:
 
 command_move_config = "mv /tmp/jubast_i3_config /home/" + USER + "/.config/i3/config"
 run(command_move_config.split())
+
+print("-----------------------------")
+print("Done!")
+
+print("Creating .xinitrc file")
+
+xinit_file = home_folder + "/.xinitrc"
+
+def create_xinit_file(mode):
+    with open(xinit_file, mode) as xinit:
+        xinit.write("#!/bin/sh\n\nexec i3\n")
+        xinit.flush()
+
+if path.exists(xinit_file):
+    if path.isfile(xinit_file):
+        create_xinit_file("w")
+    elif path.isdir(xinit_file):
+        run(["rm", "-rf", xinit_file])
+        create_xinit_file("x")
+    else:
+        run(["rm", "-f", xinit_file])
+        create_xinit_file("x")
+else:
+    create_xinit_file("x")
 
 print("-----------------------------")
 print("Done!")
