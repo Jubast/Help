@@ -1,34 +1,63 @@
 #!/usr/bin/python3
 
-from subprocess import run
-from os import path, getuid, mkdir
+import os
 
-if getuid() != 0:    
+if os.getuid() != 0:
     raise EnvironmentError("This script needs root privilages")
+
+import subprocess as sp
 
 USER = "miha"
 
+def create_file_path(path):
+    dir_name = os.path.dirname(path)
+    if not os.path.exists(dir_name):        
+        os.makedirs(dir_name)
+
+def create_dir_path(path):    
+    if not os.path.exists(path):        
+        os.makedirs(path)
+
+def file_and_write_data(file_path, data):
+    create_file_path(file_path)
+    mode = "x"
+    if os.path.exists(file_path):
+        if os.path.isdir(file_path):
+            sp.run(["rm", "-rf", file_path])            
+        elif os.path.isfile(file_path):
+            mode = "w"
+        else:
+            sp.run(["rm", "-f", file_path])
+
+    with open(file_path, mode) as file:
+        file.write(data)
+
+def execute(command):
+    os.system(command)
+
+def change_file(file_path, function):
+    if not os.path.exists(file_path):
+        raise FileNotFoundError("File does not exist!")
+    
+    with open(file_path, "r") as file:
+        file_data = file.read()
+    
+    for line_number, line_text in enumerate(file_data):
+        file_data[line_number] = function(line_number, line_text)
+    
+    with open(file_path, "w") as file:
+        file.write(file_data)
+
 #modify sources.list to add contrib non-free
 print("Modifying apt sources list...")
-sources = open("/etc/apt/sources.list", "r+")
-sources_lines = []
 
-cnf = " contrib non-free\n"
+def sources_list_function(line_number, line_text):
+    cnf = " contrib non-free\n"
+    if line_text.startswith("deb") and not line_text.endswith(cnf):
+        return line_text + cnf
 
-for line in sources:
-    sources_lines.append(line)
-    if line.startswith("deb") and not line.endswith(cnf):
-        sources_lines[-1] = sources_lines[-1][:-1] + cnf
-
-sources.truncate()
-sources.seek(0)
-
-for line in sources_lines:
-    sources.write(line)
-    if line != "\n":
-        print(line, end="")
-
-sources.close()
+sources_list_path = "/etc/apt/sources.list"
+change_file(sources_list_path, sources_list_function)
 
 print("-----------------------------")
 print("Done!")
@@ -38,12 +67,14 @@ print("Done!")
 
 print("Installing updates and downloading programs...")
 
-run(["apt", "update",])
-run(["apt", "upgrade"])
+install_xorg = False
+install_wayland = True
+
+sp.run(["apt", "update", "-y"])
+sp.run(["apt", "upgrade", "-y"])
 
 install_array = [ "apt", "install" ]
-install_array.append("xorg")
-install_array.append("i3")
+
 install_array.append("snapd")
 install_array.append("arc-theme")
 install_array.append("unzip")
@@ -52,9 +83,30 @@ install_array.append("firmware-iwlwifi")
 install_array.append("git")
 install_array.append("ufw")
 install_array.append("psmisc") #killall
-# mybe add that pulseaudio
+install_array.append("alsa-utils") #alsa
+install_array.append("pulseaudio")
 
-install_result = run(install_array)
+if install_xorg:
+    install_array.append("xorg")
+    install_array.append("i3")
+
+if install_wayland:
+    wayland_packages = "libgles2-mesa-dev libdrm2 libdrm-dev libegl1-mesa-dev xwayland"
+    install_array.extend(wayland_packages.split())
+    wlc_packages = "cmake build-essential libinput10 libinput-dev libxkbcommon0 libxkbcommon-dev libudev-dev libxcb-image0 libxcb-image0-dev libxcb-composite0 libxcb-composite0-dev libxcb-xkb1 libxcb-xkb-dev libgbm1 libgbm-dev libdbus-1-dev libsystemd-dev zlib1g-dev libpixman-1-dev libxcb-ewmh-dev wayland-protocols"
+    install_array.extend(wlc_packages.split())
+
+install_array.append("-y")
+sp.run(install_array)
+
+# splited cuz some problem with 1GB optional downloads shit (dunnu if i use some optional stuff from the above packages. tldr: i don't wana break stuff)
+
+if install_wayland:
+    install_array = [ "apt", "install" ]
+    sway_install = "-o APT::Install-Recommends=0 -o APT::Install-Suggests=0 libpcre3 libpcre3-dev libcairo2 libcairo2-dev libpango1.0-0 libpango1.0-dev asciidoc libjson-c3 libjson-c-dev libcap-dev xsltproc libpam0g-dev"
+    install_array.append(sway_install.split())
+    install_array.append("-y")
+    sp.run(install_array)
 
 print("-----------------------------")
 print("Done!")
@@ -63,7 +115,7 @@ print("Done!")
 
 print("Setting up firewall")
 
-run("ufw enable".split())
+sp.run("ufw enable".split())
 
 print("-----------------------------")
 print("Done!")
@@ -71,9 +123,8 @@ print("Done!")
 #setup iwlwifi
 print("Settingup iwlwifi")
 
-run("modprobe -r iwlwifi".split())
-run("modprobe iwlwifi".split())
-
+sp.run("modprobe -r iwlwifi".split())
+sp.run("modprobe iwlwifi".split())
 
 print("-----------------------------")
 print("Done!")
@@ -81,77 +132,16 @@ print("Done!")
 # mkfile .gtk-2.0  .config/gtk-3.0/settings.ini .xinitrc
 print("creating gtk theme files...")
 
-home_folder = "/home/" + USER
+home_folder = os.path.join("/home", USER)
+gtk2_path = os.path.join(home_folder, "/.gtkrc-2.0")
+gtk3_path = os.path.join(home_folder, ".config", "gtk-3.0", "settings.ini")
 
-gtk2_path = home_folder + "/.gtkrc-2.0"
+# run chown on whole homefolder
+#chown_gtk2 = "chown miha:miha " + gtk2_path
+#sp.run(chown_gtk2.split())
 
-config = home_folder + "/.config"
-gtk3_folder_path = config + "/gtk-3.0"
-gtk3_settings_path = gtk3_folder_path + "/settings.ini"
-
-if not path.exists(home_folder):
-    raise FileNotFoundError("such home folder does not exist!")
-
-def create_gtk2(mode):    
-    with open(gtk2_path, mode) as gtk2_file:
-        #print("writing")
-        gtk2_file.write('gtk-theme-name = "Arc-Dark"\n')
-        gtk2_file.flush()        
-
-if path.exists(gtk2_path):
-    if path.isfile(gtk2_path):
-        create_gtk2("w")
-    elif path.isdir(gtk2_path):
-        run(["rm", "-rf", gtk2_path])
-        create_gtk2("x")
-    else:
-        run(["rm", "-f", gtk2_path])
-        create_gtk2("x")
-else:
-    create_gtk2("x")
-
-chown_gtk2 = "chown miha:miha " + gtk2_path
-run(chown_gtk2.split())
-
-def create_gtk3(mode):
-    with open(gtk3_settings_path, mode) as gkt3_file:
-        gkt3_file.write("[Settings]\n")
-        gkt3_file.write("gtk-theme-name = Arc-Dark\n")
-        gkt3_file.write("gtk-application-prefer-dark-theme = true\n")
-        gkt3_file.flush()
-
-if path.exists(config):
-    if path.isdir(config):
-        pass
-    else:
-        run(["rm", "-f", config])
-        mkdir(config)
-else:
-    mkdir(config)
-
-if path.exists(gtk3_folder_path):
-    if path.isdir(gtk3_folder_path):
-        pass
-    else:
-        run(["rm", "-f", gtk3_folder_path])
-        mkdir(gtk3_folder_path)
-else:
-    mkdir(gtk3_folder_path)
-
-if path.exists(gtk3_settings_path):
-    if path.isfile(gtk3_settings_path):
-        create_gtk3("w")
-    elif path.isdir(gtk3_settings_path):
-        run(["rm", "-rf", gtk3_settings_path])
-        create_gtk3("x")
-    else:
-        run(["rm", "-f", gtk3_settings_path])
-        create_gtk3("x")
-else:
-    create_gtk3("x")
-
-chown_config = "chown -R miha:miha " + config
-run(chown_config.split())
+file_and_write_data(gtk2_path, 'gtk-theme-name = "Arc-Dark"\n')
+file_and_write_data(gtk3_path, "[Settings]\ngtk-theme-name = Arc-Dark\ngtk-application-prefer-dark-theme = true\n")
 
 print("-----------------------------")
 print("Done!")
@@ -160,9 +150,9 @@ print("Done!")
 print("Downloading fonts...")
 
 command_font_awsome = 'wget https://github.com/FortAwesome/Font-Awesome/releases/download/5.2.0/fontawesome-free-5.2.0-web.zip -O /tmp/fontawsome.zip'
-run(command_font_awsome.split())
+sp.run(command_font_awsome.split())
 command_san_francisco = 'wget https://github.com/supermarin/YosemiteSanFranciscoFont/archive/master.zip -O /tmp/sanfrancisco.zip'
-run(command_san_francisco.split())
+sp.run(command_san_francisco.split())
 
 print("-----------------------------")
 print("Done!")
@@ -171,54 +161,23 @@ print("Done!")
 print("Moving fonts files...")
 
 command_font_awsome_unzip = "unzip -o /tmp/fontawsome.zip -d /tmp/"
-run(command_font_awsome_unzip.split())
+sp.run(command_font_awsome_unzip.split())
 
 command_san_francisco_unzip = "unzip -o /tmp/sanfrancisco.zip -d /tmp/"
-run(command_san_francisco_unzip.split())
+sp.run(command_san_francisco_unzip.split())
 
-local_folder = home_folder + "/.local"
-share_folder = local_folder + "/share"
-fonts_folder = share_folder + "/fonts"
+#local_folder = home_folder + "/.local"
+#share_folder = local_folder + "/share"
+#fonts_folder = share_folder + "/fonts"
 
-# TODO: remove copy paste
-# local folder
-if path.exists(local_folder):
-    if path.isdir(local_folder):
-        pass
-    else:
-        run(["rm", "-f", local_folder])
-        mkdir(local_folder)
-else:
-    mkdir(local_folder)
-
-# share folder
-if path.exists(share_folder):
-    if path.isdir(share_folder):
-        pass
-    else:
-        run(["rm", "-f", share_folder])
-        mkdir(share_folder)
-else:
-    mkdir(share_folder)
-
-# fonts folder
-if path.exists(fonts_folder):
-    if path.isdir(fonts_folder):
-        pass
-    else:
-        run(["rm", "-f", fonts_folder])
-        mkdir(fonts_folder)
-else:
-    mkdir(fonts_folder)
-
-chown_local = "chown -R miha:miha " + local_folder
-run(chown_local.split())
+fonts_folder = os.path.join(home_folder, ".local", "share", "fonts")
+create_dir_path(fonts_folder)
 
 # cp /tmp/fontawesome-free-5.2.0-web/webfonts/*.ttf /home/miha/.local/share/fonts
 
 def copy_font_awsome(filename):
     command_font_awsome_cp = "cp /tmp/fontawesome-free-5.2.0-web/webfonts/" + filename + " /home/" + USER + "/.local/share/fonts"    
-    run(command_font_awsome_cp.split())
+    sp.run(command_font_awsome_cp.split())
 
 copy_font_awsome("fa-brands-400.ttf")
 copy_font_awsome("fa-regular-400.ttf")
@@ -229,7 +188,7 @@ def copy_sf(filename):
     command_sf_cp = "cp temp /home/" + USER + "/.local/share/fonts"
     arry=command_sf_cp.split()
     arry[1]=font_path
-    run(arry)
+    sp.run(arry)
 
 #command_san_francisco_cp = "cp /tmp/YosemiteSanFranciscoFont-master/*.ttf " + fonts_folder
 #run(command_san_francisco_cp.split())
@@ -241,13 +200,19 @@ copy_sf("System San Francisco Display Ultralight.ttf")
 
 print("-----------------------------")
 print("Done!")
-# download i3 config file
+# download wm config file
 
-print("Downloading i3 config file..")
+if install_xorg:
+    print("Downloading i3 config file..")
 
+    command_config_i3 = "wget https://github.com/Jubast/Help/raw/master/i3/config -O /tmp/jubast_wm_config"
+    sp.run(command_config_i3.split())
 
-command_config_i3 = "wget https://github.com/Jubast/Help/raw/master/i3/config -O /tmp/jubast_i3_config"
-run(command_config_i3.split())
+if install_wayland:
+    print("Downloading sway config file..")
+
+    command_config_i3 = "wget https://github.com/Jubast/Help/raw/master/sway/config -O /tmp/jubast_wm_config"
+    sp.run(command_config_i3.split())
 
 print("-----------------------------")
 print("Done!")
@@ -256,44 +221,52 @@ print("Done!")
 
 print("Moving config file...")
 
-i3_folder = config + "/i3"
+if install_xorg:
+    config_folder = "i3"
 
-if path.exists(i3_folder):
-    if path.isdir(i3_folder):
-        pass
-    else:
-        run(["rm", "-f", i3_folder])
-        mkdir(i3_folder)
-else:
-    print("creating i3")
-    mkdir(i3_folder)
+if install_wayland:
+    config_folder = "sway"
 
-command_move_config = "mv /tmp/jubast_i3_config /home/" + USER + "/.config/i3/config"
-run(command_move_config.split())
+wm_config_path = os.path.join(home_folder, ".config", config_folder, "config")
+create_file_path(wm_config_path)
+command_move_config = "mv /tmp/jubast_wm_config " + wm_config_path
+sp.run(command_move_config.split())
 
 print("-----------------------------")
 print("Done!")
 
-print("Creating .xinitrc file")
+if install_xorg:
+    print("Creating .xinitrc file")
+    xinit_file = home_folder + "/.xinitrc"
+    file_and_write_data(xinit_file, "#!/bin/sh\n\nexec i3\n")
 
-xinit_file = home_folder + "/.xinitrc"
+if install_wayland:
+    print("installing sway")
 
-def create_xinit_file(mode):
-    with open(xinit_file, mode) as xinit:
-        xinit.write("#!/bin/sh\n\nexec i3\n")
-        xinit.flush()
+    print("downloading wlc")
+    git_path = os.path.join(home_folder, "git")
+    create_dir_path(git_path)
+    clone_wlc = "git -C " + git_path + " clone https://github.com/Cloudef/wlc.git"
+    sp.run(clone_wlc.split())
 
-if path.exists(xinit_file):
-    if path.isfile(xinit_file):
-        create_xinit_file("w")
-    elif path.isdir(xinit_file):
-        run(["rm", "-rf", xinit_file])
-        create_xinit_file("x")
-    else:
-        run(["rm", "-f", xinit_file])
-        create_xinit_file("x")
-else:
-    create_xinit_file("x")
+    git_wlc_path = os.path.join(git_path, "wlc")
+    submodule_update = "git -C " + git_wlc_path + " submodule update --init --recursive"
+    sp.run(submodule_update.split())
+
+    target_path = os.path.join(git_wlc_path, "target")
+    create_dir_path(target_path)
+
+    cmake = "cmake -B" + target_path + " -H" + git_wlc_path + " -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -DSOURCE_WLPROTO=ON"
+    make = "make -C" +  
+
+
+    
+print("-----------------------------")
+print("Done!")
+
+print("fixing file ownage xd")
+chown_on_home = "chown -R " + USER + ":" + USER + " " + home_folder
+sp.run(chown_on_home.split())
 
 print("-----------------------------")
 print("Done!")
@@ -305,4 +278,4 @@ print("-----------------------------")
 print("dont forget to set up git!")
 print("and network manager :)")
 print("here is the status of ufw")
-run("ufw status verbose".split())
+sp.run("ufw status verbose".split())
