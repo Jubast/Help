@@ -1,0 +1,68 @@
+#!/usr/bin/python3
+
+import subprocess as sp
+#import sys
+
+#AT_BOOT = False
+#AT_LOGIN = False
+#
+#args = sys.argv
+#if len(args) == 1:
+#    print("No args provided!\nOptions:\n --at-boot\n --at-login")
+#    exit(1)
+#elif len(args) == 2:
+#    if args[1] == "--at-boot":
+#        AT_BOOT = True
+#    elif args[1] == "--at-login":
+#        AT_LOGIN = True
+#else:
+#    print("To many args provided!\nOptions:\n --at-boot\n --at-login")
+#    exit(1)
+
+result = sp.run(["xrandr"], stdout=sp.PIPE)
+stdout = result.stdout
+stdout_text = ""
+
+for iint in stdout:
+    stdout_text += chr(iint)
+
+stdout_array = stdout_text.split("\n")
+
+DP_2 = False
+VGA_1 = False
+LVDS_1 = False
+
+def connected(line):
+    #print(line)
+    if "disconnected" in line:
+        return False
+    return True
+
+for line in stdout_array:
+    if line.startswith("DP-2"):
+        DP_2 = connected(line)
+    elif line.startswith("VGA-1"):
+        VGA_1 = connected(line)
+    elif line.startswith("LVDS-1"):
+        LVDS_1 = connected(line)
+
+# End of getting monitors
+# -------------------------------------------
+# Executing xrandr
+
+if VGA_1 and DP_2:
+    sp.run("xrandr --output LVDS-1 --off --output VGA-1 --auto --primary --output DP-2 --auto --right-of VGA-1".split(), stdout=sp.PIPE)
+elif VGA_1 and not DP_2:
+    sp.run("xrandr --output DP-2 --off --output LVDS-1 --auto --primary --output VGA-1 --auto --right-of LVDS-1".split(), stdout=sp.PIPE)
+elif DP_2 and not VGA_1:
+    sp.run("xrandr --output VGA-1 --off --output LVDS-1 --auto --primary --output DP-2 --auto --right-of LVDS-1".split(), stdout=sp.PIPE)
+elif not VGA_1 and not DP_2:
+    sp.run("xrandr --output DP-2 --off --output VGA-1 --off --output LVDS-1 --auto --primary".split(), stdout=sp.PIPE)
+else:
+    print("No option avalib for this setup!")
+    print("DP-2")
+    print(DP_2)
+    print("LVDS-1")
+    print(LVDS_1)
+    print("VGA-1")
+    print(VGA_1)
