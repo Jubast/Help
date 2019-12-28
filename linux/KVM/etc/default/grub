@@ -1,0 +1,2 @@
+# this file just describes what to do
+add "amd_iommu=on" to GRUB_CMDLINE_LINUX_DEFAUL seperated by a space
