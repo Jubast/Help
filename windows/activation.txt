@@ -1,0 +1,5 @@
+https://github.com/SystemRage/py-kms
+
+SLMGR /ipk W269N-WFGWX-YVC9B-4J6C9-T83GX
+SLMGR /skms {ip_addr_of_kms_server}
+SLMGR /ato
